@@ -269,17 +269,17 @@ int main(int argc, char ** argv) {
 #endif
 	} while (!Config.quitting);
 	
-	// Deinitialization
+	// Prepare for pause
 	S9xAudioOutputEnable(false);
 	S9xDeinitInputDevices();
-	S9xDeinitAudioOutput();
-	S9xDeinitDisplay();
 
 	// Save state
 	Memory.SaveSRAM(S9xGetFilename(FILE_SRAM));
 	pauseGame();
 
-	// Late deinitialization
+	// Deinitialization
+	S9xDeinitAudioOutput();
+	S9xDeinitDisplay();
 	S9xGraphicsDeinit();
 	Memory.Deinit();
 	S9xUnloadConfig();

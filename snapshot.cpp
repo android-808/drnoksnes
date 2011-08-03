@@ -56,6 +56,7 @@
 #endif
 #include "srtc.h"
 #include "sdd1.h"
+#include "screenshot.h"
 
 #define dprintf(...) /* disabled */
 
@@ -391,7 +392,6 @@ static STREAM ss_st;
 static void Freeze ();
 static int Unfreeze ();
 
-static void FreezeSnapshot (const char *name);
 static void FreezeStruct (const char *name, void *base, FreezeData *fields,
 		   int num_fields);
 static void FreezeBlock (const char *name, uint8 *block, int size);
@@ -511,6 +511,15 @@ static void Freeze ()
 #ifdef ZSNES_FX
     if (Settings.SuperFX)
 	S9xSuperFXPostSaveState ();
+#endif
+#ifdef CONF_PNG
+	/* Save a PNG screenshot for convenience. */
+	size_t png_size;
+	uint8 *png = (uint8*) S9xScreenshot(&png_size);
+	if (png) {
+		FreezeBlock("PNG", png, png_size);
+		free(png);
+	}
 #endif
 }
 
@@ -770,7 +779,7 @@ void FreezeStruct(const char *name, void *base, FreezeData *fields,
 
     FreezeBlock (name, block, len);
 
-    delete block;
+    delete[] block;
 }
 
 void FreezeBlock (const char *name, uint8 *block, int size)
@@ -806,7 +815,7 @@ int UnfreezeStruct (const char *name, void *base, FreezeData *fields,
 
     if ((result = UnfreezeBlock (name, block, len)) != SUCCESS)
     {
- 	free(block);
+	delete[] block;
 	return (result);
     }
 
@@ -871,7 +880,7 @@ int UnfreezeStruct (const char *name, void *base, FreezeData *fields,
 	}
     }
 
-    delete block;
+    delete[] block;
 
     return (result);
 }
@@ -904,9 +913,9 @@ int UnfreezeBlock(const char *name, uint8 *block, int size)
 	
     if (rem)
     {
-		char *junk = (char*)malloc(rem);
+		char *junk = new char [rem];
 		READ_STREAM(junk, rem, ss_st);
-		free(junk);
+		delete[] junk;
     }
 
     return SUCCESS;

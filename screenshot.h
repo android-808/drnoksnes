@@ -90,7 +90,7 @@
 #ifndef SCREENSHOT_H
 #define SCREENSHOT_H
 
-void * S9xScreenshot(size_t *size, bool compression);
+void * S9xScreenshot(size_t *size);
 bool S9xSaveScreenshot(const char * file);
 
 #endif

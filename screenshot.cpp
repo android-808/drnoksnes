@@ -110,9 +110,9 @@ static void write_data(png_structp png_ptr, png_bytep data, png_size_t length)
 	png_size_t new_size = p->size + length;
 
 	if (!p->buffer) {
-		p->buffer = (png_bytep) malloc(p->buf_size);
 		p->buf_size = new_size + 256;
-		p->size = new_size;
+		p->size = 0;
+		p->buffer = (png_bytep) malloc(p->buf_size);
 		if (!p->buffer) {
 			png_error(png_ptr, "Out of memory");
 			return;
@@ -182,12 +182,12 @@ static void write_png(png_structp png_ptr, png_infop info_ptr)
 		}
 		png_write_row(png_ptr, row_data);
 	}
-	delete row_data;
+	delete [] row_data;
 
 	png_write_end(png_ptr, info_ptr);
 }
 
-void * S9xScreenshot(size_t *size, bool compression)
+void * S9xScreenshot(size_t *size)
 {
 	ScreenshotPriv priv = { 0 };
 
@@ -211,7 +211,7 @@ void * S9xScreenshot(size_t *size, bool compression)
 	}
 
 	png_set_write_fn(png_ptr, &priv, write_data, flush_data);
-	png_set_compression_level(png_ptr, Z_NO_COMPRESSION);
+	png_set_compression_level(png_ptr, Z_BEST_SPEED);
 
 	write_png(png_ptr, info_ptr);
 
