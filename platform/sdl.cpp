@@ -13,6 +13,7 @@
 #include "soundux.h"
 #include "hacks.h"
 #include "snapshot.h"
+#include "screenshot.h"
 
 #define kPollEveryNFrames		2		//Poll input only every this many frames
 
@@ -299,6 +300,13 @@ void S9xDoAction(unsigned char action)
 	if (action & kActionToggleFullscreen) {
 		S9xVideoToggleFullscreen();
 	}
+
+#if CONF_PNG
+	if (action & kActionScreenshot) {
+		S9xSaveScreenshot(S9xGetFilename(FILE_SCREENSHOT));
+		S9xSetInfoString("Screenshot taken");
+	}
+#endif
 
 	if (action & kActionQuickLoad1) {
 		const char * file = S9xGetQuickSaveFilename(1);

@@ -128,6 +128,8 @@ static unsigned char actionNameToBit(const char *s) {
 		return kActionQuit;
 	} else if (strcasecmp(s, "fullscreen") == 0) {
 		return kActionToggleFullscreen;
+	} else if (strcasecmp(s, "screenshot") == 0) {
+		return kActionScreenshot;
 	} else if (strcasecmp(s, "quickload1") == 0) {
 		return kActionQuickLoad1;
 	} else if (strcasecmp(s, "quicksave1") == 0) {

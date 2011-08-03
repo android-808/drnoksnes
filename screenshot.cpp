@@ -87,23 +87,10 @@
   Nintendo Co., Limited and its subsidiary companies.
 *******************************************************************************/
 
-
-#ifdef HAVE_CONFIG_H
-	#include <config.h>
-#endif
 #include <stdio.h>
-
-#ifndef __WIN32__
-#include <unistd.h>
-#else
-#include <direct.h>
-#endif
 #include <string.h>
-#include <fcntl.h>
-
-#ifdef HAVE_LIBPNG
+#include <assert.h>
 #include <png.h>
-#endif
 
 #include "snes9x.h"
 #include "memmap.h"
@@ -111,104 +98,162 @@
 #include "ppu.h"
 #include "screenshot.h"
 
-bool8 S9xDoScreenshot(int width, int height){
-#ifdef HAVE_LIBPNG
-    FILE *fp;
-    png_structp png_ptr;
-    png_infop info_ptr;
-    png_color_8 sig_bit;
-    png_color pngpal[256];
-    int imgwidth;
-    int imgheight;
-    const char *fname=S9xGetFilenameInc(".png");
-    
-    Settings.TakeScreenshot=FALSE;
+typedef struct {
+	png_bytep buffer;
+	png_size_t size;
+	png_size_t buf_size;
+} ScreenshotPriv;
 
-    if((fp=fopen(fname, "wb"))==NULL){
-        perror("Screenshot failed");
-        return FALSE;
-    }
+static void write_data(png_structp png_ptr, png_bytep data, png_size_t length)
+{
+	ScreenshotPriv *p = (ScreenshotPriv*) png_get_io_ptr(png_ptr);
+	png_size_t new_size = p->size + length;
 
-    png_ptr=png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-    if(!png_ptr){
-        fclose(fp);
-        unlink(fname);
-        return FALSE;
-    }
-    info_ptr=png_create_info_struct(png_ptr);
-    if(!info_ptr){
-        png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
-        fclose(fp);
-        unlink(fname);
-        return FALSE;
-    }
+	if (!p->buffer) {
+		p->buffer = (png_bytep) malloc(p->buf_size);
+		p->buf_size = new_size + 256;
+		p->size = new_size;
+		if (!p->buffer) {
+			png_error(png_ptr, "Out of memory");
+			return;
+		}
+	}
 
-    if(setjmp(png_jmpbuf(png_ptr))){
-        perror("Screenshot: setjmp");
-        png_destroy_write_struct(&png_ptr, &info_ptr);
-        fclose(fp);
-        unlink(fname);
-        return FALSE;
-    }
+	if (new_size > p->buf_size) {
+		png_size_t new_buf_size = p->buf_size;
+		do {
+			new_buf_size *= 2;
+		} while (new_size > new_buf_size);
+		png_bytep new_buf = (png_bytep) realloc(p->buffer, new_buf_size);
+		if (!new_buf) {
+			png_error(png_ptr, "Out of memory");
+			return;
+		}
+		p->buffer = new_buf;
+		p->buf_size = new_buf_size;
+	}
 
-    imgwidth=width;
-    imgheight=height;
-    if(Settings.StretchScreenshots==1){
-        if(width<=256 && height>SNES_HEIGHT_EXTENDED) imgwidth=width<<1;
-        if(width>256 && height<=SNES_HEIGHT_EXTENDED) imgheight=height<<1;
-    } else if(Settings.StretchScreenshots==2){
-        if(width<=256) imgwidth=width<<1;
-        if(height<=SNES_HEIGHT_EXTENDED) imgheight=height<<1;
-    }
-    
-    png_init_io(png_ptr, fp);
-    png_set_IHDR(png_ptr, info_ptr, imgwidth, imgheight, 8, 
-                 PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
-                 PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+	memcpy(p->buffer + p->size, data, length);
+	p->size += length;
 
-    /* 5 bits per color */
-    sig_bit.red=5;
-    sig_bit.green=5;
-    sig_bit.blue=5;
-    png_set_sBIT(png_ptr, info_ptr, &sig_bit);
-    png_set_shift(png_ptr, &sig_bit);
+}
 
-    png_write_info(png_ptr, info_ptr);
-    
-    png_set_packing(png_ptr);
+static void flush_data(png_structp png_ptr)
+{
+	ScreenshotPriv *p = (ScreenshotPriv*) png_get_io_ptr(png_ptr);
+	if (p->size < p->buf_size) {
+		png_bytep newbuf = (png_bytep) realloc(p->buffer, p->size);
+		if (!newbuf) {
+			png_error(png_ptr, "Out of memory");
+			return;
+		}
+		p->buffer = newbuf;
+		p->buf_size = p->size;
+	}
+}
 
-    png_byte *row_pointer=new png_byte [png_get_rowbytes(png_ptr, info_ptr)];
-    uint8 *screen=GFX.Screen;
-    for(int y=0; y<height; y++, screen+=GFX.Pitch){
-        png_byte *rowpix = row_pointer;
-        for(int x=0; x<width; x++){
-            uint32 r, g, b;
-            DECOMPOSE_PIXEL((*(uint16 *)(screen+2*x)), r, g, b);
-            *(rowpix++) = r;
-            *(rowpix++) = g;
-            *(rowpix++) = b;
-            if (imgwidth!=width) {
-                *(rowpix++) = r;
-                *(rowpix++) = g;
-                *(rowpix++) = b;
-            }
-        }
-        png_write_row(png_ptr, row_pointer);
-        if(imgheight!=height)
-            png_write_row(png_ptr, row_pointer);
-    }
+static void write_png(png_structp png_ptr, png_infop info_ptr)
+{
+	const int width = IPPU.RenderedScreenWidth, height = IPPU.RenderedScreenHeight;
 
-    delete [] row_pointer;
-        
-    png_write_end(png_ptr, info_ptr);
-    png_destroy_write_struct(&png_ptr, &info_ptr);
+	png_set_IHDR(png_ptr, info_ptr, width, height, 8, PNG_COLOR_TYPE_RGB,
+		PNG_INTERLACE_NONE,	PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
-    fclose(fp);
-    fprintf(stderr, "%s saved.\n", fname);
-    return TRUE;
-#else
-    perror("Screenshot support not available (libpng was not found at build time)");
-	return FALSE;
-#endif
+	/* 5 bits per color is around what SNES is capable */
+	png_color_8 sig_bit;
+	sig_bit.red = 5;
+	sig_bit.green = 5;
+	sig_bit.blue = 5;
+	png_set_sBIT(png_ptr, info_ptr, &sig_bit);
+	png_set_shift(png_ptr, &sig_bit);
+
+	png_write_info(png_ptr, info_ptr);
+
+	png_byte *row_data = new png_byte[png_get_rowbytes(png_ptr, info_ptr)];
+	uint8 *screen = GFX.Screen;
+	for (int y = 0; y < height; y++, screen += GFX.Pitch) {
+		png_byte *pix_data = row_data;
+		for (int x = 0; x < width; x++) {
+			uint32 r, g, b;
+			DECOMPOSE_PIXEL((*(uint16*)(screen+2*x)), r, g, b);
+			*(pix_data++) = r;
+			*(pix_data++) = g;
+			*(pix_data++) = b;
+		}
+		png_write_row(png_ptr, row_data);
+	}
+	delete row_data;
+
+	png_write_end(png_ptr, info_ptr);
+}
+
+void * S9xScreenshot(size_t *size, bool compression)
+{
+	ScreenshotPriv priv = { 0 };
+
+	png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, 0, 0, 0);
+	if (!png_ptr) {
+		return 0;
+	}
+
+	png_infop info_ptr = png_create_info_struct(png_ptr);
+	if (!info_ptr) {
+		goto clean_png;
+	}
+
+	if(setjmp(png_jmpbuf(png_ptr))){
+		if (priv.buffer) {
+			free(priv.buffer);
+			priv.buffer = 0;
+		}
+		priv.size = 0;
+		goto clean_png;
+	}
+
+	png_set_write_fn(png_ptr, &priv, write_data, flush_data);
+	png_set_compression_level(png_ptr, Z_NO_COMPRESSION);
+
+	write_png(png_ptr, info_ptr);
+
+clean_png:
+	png_destroy_write_struct(&png_ptr, &info_ptr);
+
+	if (priv.size && size) *size = priv.size;
+	return priv.buffer;
+}
+
+bool S9xSaveScreenshot(const char * file)
+{
+	FILE *f = fopen(file, "wb");
+	if (!f) return false;
+
+	png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, 0, 0, 0);
+	if (!png_ptr) {
+		return 0;
+	}
+
+	png_infop info_ptr = png_create_info_struct(png_ptr);
+	if (!info_ptr) {
+		fclose(f);
+		png_destroy_write_struct(&png_ptr, 0);
+		return false;
+	}
+
+	if(setjmp(png_jmpbuf(png_ptr))){
+		fclose(f);
+		png_destroy_write_struct(&png_ptr, &info_ptr);
+		return false;
+	}
+
+	png_init_io(png_ptr, f);
+	png_set_compression_level(png_ptr, Z_BEST_COMPRESSION);
+
+	write_png(png_ptr, info_ptr);
+
+	png_destroy_write_struct(&png_ptr, &info_ptr);
+
+	fclose(f);
+
+	return true;
 }
 

@@ -43,12 +43,6 @@
 #include <ctype.h>
 #include <stdlib.h>
 
-#if defined(__unix) || defined(__linux) || defined(__sun) || defined(__DJGPP)
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#endif
-
 #include "snapshot.h"
 #include "memmap.h"
 #include "snes9x.h"
@@ -64,8 +58,6 @@
 #include "sdd1.h"
 
 #define dprintf(...) /* disabled */
-
-extern uint8 *SRAM;
 
 #ifdef ZSNES_FX
 START_EXTERN_C
@@ -398,6 +390,8 @@ static STREAM ss_st;
 
 static void Freeze ();
 static int Unfreeze ();
+
+static void FreezeSnapshot (const char *name);
 static void FreezeStruct (const char *name, void *base, FreezeData *fields,
 		   int num_fields);
 static void FreezeBlock (const char *name, uint8 *block, int size);
@@ -678,7 +672,7 @@ static int Unfreeze()
     return (SUCCESS);
 }
 
-int FreezeSize (int size, int type)
+static int FreezeSize (int size, int type)
 {
     switch (type)
     {
@@ -707,8 +701,7 @@ void FreezeStruct(const char *name, void *base, FreezeData *fields,
 						  fields [i].type);
     }
 
-//    uint8 *block = new uint8 [len];
-    uint8 *block = (uint8*)malloc(len);
+    uint8 *block = new uint8[len];
     uint8 *ptr = block;
     uint16 word;
     uint32 dword;
@@ -777,7 +770,7 @@ void FreezeStruct(const char *name, void *base, FreezeData *fields,
 
     FreezeBlock (name, block, len);
 
- 	free(block);
+    delete block;
 }
 
 void FreezeBlock (const char *name, uint8 *block, int size)
@@ -804,7 +797,7 @@ int UnfreezeStruct (const char *name, void *base, FreezeData *fields,
 						  fields [i].type);
     }
 
-	uint8 *block = (uint8*)malloc(len);
+	uint8 *block = new uint8 [len];
     uint8 *ptr = block;
     uint16 word;
     uint32 dword;
@@ -878,8 +871,8 @@ int UnfreezeStruct (const char *name, void *base, FreezeData *fields,
 	}
     }
 
-//    delete block;
- 	free(block);
+    delete block;
+
     return (result);
 }
 

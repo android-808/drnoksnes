@@ -45,9 +45,6 @@
 #include "soundux.h"
 #include "cpuexec.h"
 
-/* For note-triggered SPC dump support */
-//#include "snapshot.h"
-
 //extern int NoiseFreq [32];
 #ifdef DEBUGGER
 void S9xTraceSoundDSP (const char *s, int i1 = 0, int i2 = 0, int i3 = 0,
@@ -479,18 +476,6 @@ void S9xSetAPUDSP (uint8 byte)
 	static uint8 KeyOn;
 	static uint8 KeyOnPrev;
     int i;
-    
-/*    char str[64];
-    if (byte!=0)
-    {
-		sprintf(str,"fr : %d\nwrite dsp %d\ncpu cycle=%d pc=%04X",framecpto,byte,CPU.Cycles,CPU.PC-CPU.PCBase);
-		S9xMessage(0,0,str);
-		gp32_pause();
-	}*/
-
-	//extern uint8 spc_dump_dsp[0x100];
-
-	//spc_dump_dsp[reg] = byte;
 
     switch (reg)
     {
@@ -713,7 +698,7 @@ void S9xSetAPUDSP (uint8 byte)
 		S9xTraceSoundDSP ("\n");
 #endif
 	}
-	//spc_is_dumping_temp = byte;
+
 	return;
 	
     case APU_VOL_LEFT + 0x00:

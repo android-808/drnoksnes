@@ -23,6 +23,8 @@ else ifeq ($(ARCH),amd64)
 	CONF_BUILD_ASM_SA1?=0
 	CONF_BUILD_MISC_ROUTINES?=misc_amd64
 endif
+# PNG screenshot support (requires libpng)
+CONF_PNG?=1
 # Hardware pixel doubling (in N8x0)
 CONF_XSP?=0
 # Hildon Desktop compositing (in Fremantle)
@@ -65,6 +67,11 @@ OBJS += platform/path.o platform/config.o
 OBJS += platform/sdl.o platform/sdlv.o platform/sdla.o platform/sdli.o
 OBJS += platform/sdlvscalers.o
 
+ifeq ($(CONF_PNG), 1)
+	CPPFLAGS += -DCONF_PNG=1 $(shell pkg-config --cflags libpng)
+	LDLIBS += $(shell pkg-config --libs libpng)
+	OBJS += screenshot.o
+endif
 ifeq ($(CONF_XSP), 1)
 	CPPFLAGS += -DCONF_XSP=1 $(shell pkg-config --cflags xsp)
 	LDLIBS += $(shell pkg-config --libs xsp)
