@@ -9,6 +9,10 @@
 #include "zeemote.h"
 #endif
 
+#if !defined(SDL_MAXMOUSE)
+#define SDL_MAXMOUSE 1
+#endif
+
 struct TouchButton {
 	unsigned short mask;
 	unsigned short x, y;
@@ -46,7 +50,7 @@ static TouchButton touchbuttons[] = {
 #undef TB
 };
 
-static TouchButton* current = 0;
+static TouchButton* current[SDL_MAXMOUSE] = { 0 };
 
 static uint32 joypads[2];
 static struct {
@@ -76,7 +80,7 @@ static inline void press(TouchButton* b) {
 	joypads[Config.touchscreenInput - 1] |= b->mask;
 }
 
-static void processMouse(unsigned int x, unsigned int y, int pressed = 0)
+static void processMouse(int which, unsigned int x, unsigned int y, int pressed = 0)
 {
 #if CONF_EXIT_BUTTON
 	/* no fullscreen escape button, we have to simulate one! */
@@ -88,27 +92,27 @@ static void processMouse(unsigned int x, unsigned int y, int pressed = 0)
 	if (Config.touchscreenInput) {
 		if (pressed < 0) {
 			// Button up.
-			if (current) {
+			if (current[which]) {
 				// Leaving button
-				unpress(current);
-				current = 0;
+				unpress(current[which]);
+				current[which] = 0;
 			}
 		} else {
 			// Button down, or mouse motion.
 			TouchButton* b = getButtonFor(x, y);
-			if (current && b && current != b) {
+			if (current[which] && b && current[which] != b) {
 				// Moving from button to button
-				unpress(current);
-				current = b;
-				press(current);
-			} else if (current && !b) {
+				unpress(current[which]);
+				current[which] = b;
+				press(current[which]);
+			} else if (current[which] && !b) {
 				// Leaving button
-				unpress(current);
-				current = 0;
-			} else if (!current && b) {
+				unpress(current[which]);
+				current[which] = 0;
+			} else if (!current[which] && b) {
 				// Entering button
-				current = b;
-				press(current);
+				current[which] = b;
+				press(current[which]);
 			}
 		}
 	} else if (mouse.enabled) {
@@ -157,11 +161,11 @@ static void processEvent(const SDL_Event& event)
 			break;
 		case SDL_MOUSEBUTTONUP:
 		case SDL_MOUSEBUTTONDOWN:
-			processMouse(event.button.x, event.button.y,
+			processMouse(event.button.which, event.button.x, event.button.y,
 					(event.button.state == SDL_PRESSED) ? 1 : - 1);
 			break;
 		case SDL_MOUSEMOTION:
-			processMouse(event.motion.x, event.motion.y);
+			processMouse(event.button.which, event.motion.x, event.motion.y);
 			break;
 		case SDL_QUIT:
 			Config.quitting = true;
