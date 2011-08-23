@@ -31,6 +31,8 @@ static void centerRectangle(SDL_Rect& result, int areaW, int areaH, int w, int h
 	result.w = w;
 	result.y = areaH / 2 - h / 2;
 	result.h = h;
+	/* We need to keep this 4-byte aligned (each pixel is 2-byte) */
+	result.x &= ~1;
 }
 
 /* Base scaler for stupid scalers */
@@ -103,10 +105,14 @@ public:
 		x = 1.0f; y = 1.0f;
 	};
 
-	virtual void prepare() { };
+	virtual void prepare()
+	{
+		if (SDL_MUSTLOCK(m_screen)) SDL_LockSurface(m_screen);
+	};
 
 	virtual void finish()
 	{
+		if (SDL_MUSTLOCK(m_screen)) SDL_UnlockSurface(m_screen);
 		SDL_UpdateRects(m_screen, 1, &m_area);
 	};
 
@@ -289,10 +295,13 @@ public:
 		x = 2.0f; y = 2.0f;
 	};
 
-	void prepare() { };
+	void prepare() {
+		SDL_FillRect(m_screen, NULL, 0);
+	};
 
 	void finish()
 	{
+		if (SDL_MUSTLOCK(m_screen)) SDL_LockSurface(m_screen);
 		uint16 * src = reinterpret_cast<uint16*>(m_surface);
 		uint16 * dst = reinterpret_cast<uint16*>(
 			((uint8*) m_screen->pixels)
@@ -353,7 +362,13 @@ public:
 			if (y&1) src += src_pitch;
 		}
 
-		SDL_UpdateRects(m_screen, 1, &m_area);
+		if (SDL_MUSTLOCK(m_screen)) SDL_UnlockSurface(m_screen);
+
+		if (m_screen->flags & SDL_DOUBLEBUF) {
+			SDL_Flip(m_screen);
+		} else {
+			SDL_UpdateRects(m_screen, 1, &m_area);
+		}
 	};
 
 	void pause() { };
