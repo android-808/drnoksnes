@@ -6,7 +6,7 @@
 .text
 
 .global memcpy32 @ int *dest, int *src, int count
-.type memcpy32, @function
+.type memcpy32, function
 
 memcpy32:
     stmfd   sp!, {r4,lr}
@@ -37,7 +37,7 @@ mcp32_no_unal1:
 .size memcpy32, .-memcpy32
 
 .global memset32 @ int *dest, int c, int count
-.type memset32, @function
+.type memset32, function
 
 memset32:
     stmfd   sp!, {lr}
