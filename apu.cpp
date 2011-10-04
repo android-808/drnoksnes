@@ -416,8 +416,6 @@ EXTERN_C uint8 APUROM [64];
 
 void S9xResetAPU ()
 {
-//    Settings.APUEnabled = Settings.NextAPUEnabled;
-
     memset (IAPU.RAM, Settings.APURAMInitialValue, 0x10000);
     //memset (IAPU.ShadowRAM, Settings.APURAMInitialValue, 0x10000);
     
@@ -526,10 +524,9 @@ void S9xSetAPUDSP (uint8 byte)
 	    uint8 mask = 1;
 	    for (int c = 0; c < 8; c++, mask <<= 1)
 	    {
-		int type;
-		if (byte & mask)
+		uint8 bit = byte & mask;
+		if (bit)
 		{
-		    type = SOUND_NOISE;
 #ifdef DEBUGGER
 		    if (Settings.TraceSoundDSP)
 		    {
@@ -539,10 +536,10 @@ void S9xSetAPUDSP (uint8 byte)
 			    S9xTraceSoundDSP ("%d(on),", c);
 		    }
 #endif
+			S9xSetSoundType(c, SOUND_NOISE);
 		}
 		else
 		{
-		    type = SOUND_SAMPLE;
 #ifdef DEBUGGER
 		    if (Settings.TraceSoundDSP)
 		    {
@@ -550,8 +547,8 @@ void S9xSetAPUDSP (uint8 byte)
 			    S9xTraceSoundDSP ("%d(off),", c);
 		    }
 #endif
+			S9xSetSoundType(c, SOUND_SAMPLE);
 		}
-		S9xSetSoundType (c, type);
 	    }
 #ifdef DEBUGGER
 	    if (Settings.TraceSoundDSP)
