@@ -24,39 +24,35 @@
 
 #include <string.h>
 #include <glib.h>
-#include <libgnomevfs/gnome-vfs-uri.h>
-#include <libgnomevfs/gnome-vfs-utils.h>
-#include <libgnomevfs/gnome-vfs-ops.h>
-#include <libgnomevfs/gnome-vfs-xfer.h>
-#include <hildon/hildon-file-chooser-dialog.h>
+#include <gio/gio.h>
 #include <hildon/hildon-banner.h>
+#include <hildon/hildon-file-chooser-dialog.h>
 
 #include "plugin.h"
 
 static gchar * cur_save_uri = NULL;
 
 // Pulling nearly all of gnomevfs just to copy a file. *sigh*.
-static GnomeVFSResult copy_file(const char * source_uri, const char * dest_uri)
+static gboolean copy_file(const char * source_uri, const char * dest_uri)
 {
-	GnomeVFSURI* src = gnome_vfs_uri_new(source_uri);
-	GnomeVFSURI* dst = gnome_vfs_uri_new(dest_uri);
-	GnomeVFSResult res;
+	GFile* src = g_file_new_for_uri(source_uri);
+	GFile* dst = g_file_new_for_uri(dest_uri);
+	gboolean res;
 
-	res = gnome_vfs_xfer_uri(src, dst,
-			GNOME_VFS_XFER_TARGET_DEFAULT_PERMS,
-			GNOME_VFS_XFER_ERROR_MODE_ABORT,
-			GNOME_VFS_XFER_OVERWRITE_MODE_REPLACE,
-			NULL, NULL);
+	res = g_file_copy (src, dst,
+			G_FILE_COPY_TARGET_DEFAULT_PERMS |
+			G_FILE_COPY_OVERWRITE,
+			NULL, NULL , NULL, NULL);
 
-	gnome_vfs_uri_unref(src);
-	gnome_vfs_uri_unref(dst);
+	g_object_unref(src);
+	g_object_unref(dst);
 
 	return res;
 }
 
-static gboolean show_result(GnomeVFSResult res, GtkWindow* parent, const char* msg)
+static gboolean show_result(gboolean res, GtkWindow* parent, const char* msg)
 {
-	if (res == GNOME_VFS_OK) {
+	if (res == TRUE) {
 		hildon_banner_show_information(GTK_WIDGET(parent), NULL, msg);
 		return TRUE;
 	} else {
@@ -111,7 +107,7 @@ void save_load(GtkWindow* parent)
 
 	if (uri) {
 		const gchar * frz_file = game_state_get_frz_file();
-		gchar * frz_uri = gnome_vfs_get_uri_from_local_path(frz_file);
+		gchar * frz_uri = g_filename_to_uri (frz_file, NULL, NULL);
 		show_result(copy_file(uri, frz_uri), parent, "Game loaded");
 		g_free(frz_uri);
 	}
@@ -126,7 +122,7 @@ void save_save(GtkWindow* parent)
 {
 	if (cur_save_uri) {
 		const gchar * frz_file = game_state_get_frz_file();
-		gchar * frz_uri = gnome_vfs_get_uri_from_local_path(frz_file);
+		gchar * frz_uri = g_filename_to_uri (frz_file, NULL, NULL);
 		show_result(copy_file(frz_uri, cur_save_uri), parent, "Game saved");
 		g_free(frz_uri);
 	} else {
@@ -140,7 +136,7 @@ void save_save_as(GtkWindow* parent)
 
 	if (uri) {
 		const gchar * frz_file = game_state_get_frz_file();
-		gchar * frz_uri = gnome_vfs_get_uri_from_local_path(frz_file);
+		gchar * frz_uri = g_filename_to_uri (frz_file, NULL, NULL);
 		gboolean res = show_result(copy_file(frz_uri, uri), parent, "Game saved");
 		g_free(frz_uri);
 
