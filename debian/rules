@@ -16,8 +16,8 @@ DEB_BUILD_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
 ARCH				?= $(shell dpkg-architecture -qDEB_BUILD_ARCH)
 
 # Determine Maemo version
-MAEMO_VERSION := $(shell cut -d"." -f1 /etc/maemo_version)
-
+#MAEMO_VERSION := $(shell cut -d"." -f1 /etc/maemo_version)
+MAEMO_VERSION := 5
 # Determine app version from debian changelog
 GAME_VERSION := $(shell head -n 1 debian/changelog | sed 's/[^0-9.-]//g')
 
@@ -26,7 +26,7 @@ CFLAGS := -Wall -g -DMAEMO -DMAEMO_VERSION=$(MAEMO_VERSION)
 CXXFLAGS := -Wall -g -DMAEMO -DMAEMO_VERSION=$(MAEMO_VERSION)
 GUI_CFLAGS := -std=c99 -fPIC -shared $(CFLAGS)
 LDFLAGS := -Wl,-z,defs -Wl,-O1
-GUI_LDFLAGS := -export-dynamic -avoid-version -module -shared $(LDFLAGS)
+GUI_LDFLAGS := -export-dynamic -shared $(LDFLAGS)
 ASFLAGS := -g
 
 # Compiler optimization settings
@@ -54,6 +54,10 @@ else ifneq (,$(findstring armel,$(ARCH)))
 		CFLAGS += -static-libgcc
 	endif
 else ifneq (,$(findstring i386,$(ARCH)))
+	CFLAGS += $(OPT_CFLAGS)
+	CXXFLAGS += $(OPT_CXXFLAGS)
+	GUI_CFLAGS += -O2
+else ifneq (,$(findstring amd64,$(ARCH)))
 	CFLAGS += $(OPT_CFLAGS)
 	CXXFLAGS += $(OPT_CXXFLAGS)
 	GUI_CFLAGS += -O2
